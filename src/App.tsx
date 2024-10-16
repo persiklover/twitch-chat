@@ -1,4 +1,13 @@
 import { useEffect, useState } from 'react'
+import parseTags from './utils/parse-tags';
+import StreamerIcon from './icons/StreamerIcon';
+import ModeratorIcon from './icons/ModeratorIcon';
+import SubscriberIcon from './icons/SubscriberIcon';
+import ViewerIcon from './icons/ViewerIcon';
+
+function shortenLinks(input: string) {
+  return input.replace(/https?:\/\/(www\.)?([\w.-]+\.[a-z]{2,6}\/[^\s]*)/gi, '$2');
+}
 
 interface ParsedMessage {
   tags: { [key: string]: string };
@@ -14,7 +23,12 @@ interface ParsedMessage {
 const channelName = 'Rua_Sato';
 
 function App() {
-  const [messages, setMessages] = useState<ParsedMessage[]>([]);
+  const [messages, setMessages] = useState<ParsedMessage[]>([
+    {
+      username: 'Бобик',
+      content: 'Привет, Руа, мечтаю сорвать с тебя одержу и утонуть в твоих нежныхнежныхнежныхнежныхнежныхнежныхнежныхнежныхнежных boobs'
+    } as ParsedMessage
+  ]);
   useEffect(() => {
     const username = `justinfan${Math.floor(Math.random() * 100000)}`;  // Гостевой аккаунт с случайным числом
     const channel = `#${channelName.toLowerCase()}`;  // Название канала (всегда в нижнем регистре и с '#')
@@ -46,11 +60,13 @@ function App() {
       // Логика обработки сообщений чата
       const parsedMessage = parseMessage(message);
       if (parsedMessage) {
+        console.log(parsedMessage);
         displayMessage(parsedMessage);
       }
     };
 
     function parseMessage(message: string): ParsedMessage | null {
+      console.log(message);
       // IRC tags включаются в префикс сообщения и начинаются с '@'
       const tagRegex = /^@([^ ]+) :(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG (#\w+) :(.+)$/;
       const match = message.match(tagRegex);
@@ -61,13 +77,18 @@ function App() {
         const channel = match[3];
         const content = match[4];
 
+        // Проверка на наличие значков подписчика через тег badges
+        const badges = tags['badges'] || '';
+        const isSub = tags['subscriber'] === '1';  // Если тег subscriber равен "1", пользователь подписчик
+        const hasSubBadge = badges.includes('subscriber');  // Также проверяем значок подписчика
+
         return {
           tags,
           username,
           channel,
           content,
           isMod: tags['mod'] === '1',
-          isSub: tags['subscriber'] === '1',
+          isSub: isSub || hasSubBadge,  // Проверка через тег subscriber или значок badges
           userId: tags['user-id'] || '',
           messageId: tags['id'] || ''
         };
@@ -76,22 +97,10 @@ function App() {
       return null;
     }
 
-    function parseTags(tagString: string): { [key: string]: string } {
-      const tags: { [key: string]: string } = {};
-      const tagPairs = tagString.split(';');
-
-      tagPairs.forEach(tag => {
-        const [key, value] = tag.split('=');
-        tags[key] = value || '';
-      });
-
-      return tags;
-    }
-
     // Функция для отображения сообщения
     function displayMessage(message: ParsedMessage): void {
-      const { username, content } = message;
-      console.log(`[${username}]: ${content}`);
+      const { username, content, isSub } = message;
+      console.log(`[${username}]: ${content} ${isSub ? '[SUBSCRIBER]' : ''}`);
       // Здесь можно добавить код для отображения сообщений в HTML-элементе, если нужно
       setMessages(messages => [...messages, message]);
     }
@@ -108,18 +117,45 @@ function App() {
   }, [])
 
   return (
-    <>
-      <h1 className="text-3xl font-bold">
-        Twitch chat for {channelName}:
-      </h1>
-      <ul>
-        {messages.map(({ messageId, username, content }) =>
-          <li key={messageId}>
-            {username}: {content}
-          </li>
+    <div className="bg-slate-600 flex flex-col w-screen min-h-screen">
+      <ul className='w-full flex flex-col'>
+        {messages.map(({ messageId, username, content, isMod, isSub }) =>
+          <div key={messageId || -1} className="text-white w-full flex gap-3 p-2 rounded-xl">
+            {/* Profile Icon */}
+            <div className="flex flex-col gap-1 items-center">
+              <div className="flex justify-center items-center size-[22px] bg-[#ABBFF1] rounded-full">
+                {username === channelName.toLowerCase()
+                  ? <StreamerIcon />
+                  : isMod
+                    ? <ModeratorIcon />
+                    : isSub
+                      ? <SubscriberIcon />
+                      : <ViewerIcon />
+                }
+              </div>
+              <div
+                className="grow h-8 border-l-[2px] border-dashed border-[#ABBFF1]"
+                style={{
+                  borderImage:
+                  'repeating-linear-gradient(#ABBFF1, #ABBFF1 18px, transparent 18px, transparent 24px, #ABBFF1 24px, #ABBFF1 24px) 1 100%' }}></div>
+
+            </div>
+
+            {/* Message Content */}
+            <div className="flex flex-col gap-1 grow">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="ml-1 font-bold" style={{ textShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}>{username}</span>
+              </div>
+              <div className="relative max-w-full bg-[#243771] py-2 px-4 rounded-lg border border-[#ABBFF1] shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+                {shortenLinks(content)}
+                {/* <p className="block overflow-hidden text-ellipsis">{shortenLinks(content)}</p> */}
+                <div className='absolute right-2 top-0 bottom-0 flex w-[1px] bg-[#ABBFF1]'></div>
+              </div>
+            </div>
+          </div>
         )}
       </ul>
-    </>
+    </div>
   )
 }
 
