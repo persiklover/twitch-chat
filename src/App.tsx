@@ -215,7 +215,7 @@ function App() {
           {/* Profile Icon */}
           <div className="flex flex-col gap-1 items-center">
             <div className="flex justify-center items-center size-6 bg-[#ABBFF1] rounded-full">
-              {username === channelName
+              {username === channelName.toLowerCase()
                 ? <StreamerIcon />
                 : isMod
                   ? <ModeratorIcon />
@@ -237,12 +237,12 @@ function App() {
               <span
                 className={classNames(
                   'ml-1 font-bold text-xl leading-tight',
-                  username === channelName && 'text-blue-200'
+                  username === channelName.toLowerCase() && 'text-blue-200'
                 )}
                 style={{ textShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}
               >
-                {tags['display-name'] || username}
-                {username === channelName && ' (чикибульони)'}
+                {tags?.['display-name'] || username}
+                {username === channelName.toLowerCase() && ' (чикибульони)'}
               </span>
             </div>
             <div
