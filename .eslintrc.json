@@ -16,6 +16,7 @@
       },
       "plugins": ["react-hooks", "react-refresh"],
       "rules": {
+        "quotes": ["warn", "single"],
         "@typescript-eslint/no-unused-vars": "warn",
         "react-hooks/rules-of-hooks": "error",
         "react-hooks/exhaustive-deps": "warn",
