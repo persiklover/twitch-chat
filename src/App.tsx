@@ -1,19 +1,28 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import parseTags from './utils/parse-tags';
+import { useCallback, useEffect, useRef, useState } from 'react'
+import classNames from 'classnames';
 import shortenLinks from './utils/shorten-links';
+import parseTags from './utils/parse-tags';
+import messageMock from './message-mock';
 import StreamerIcon from './icons/StreamerIcon';
 import ModeratorIcon from './icons/ModeratorIcon';
 import SubscriberIcon from './icons/SubscriberIcon';
 import ViewerIcon from './icons/ViewerIcon';
-import messageMock from './message-mock';
-import classNames from 'classnames';
 
-const highlightLinks = (input: string) => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = input.split(urlRegex);
+const mentionRegex = /(@\w+)/g;
+const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+function processText(input: string) {
+  const mentionAndUrlRegex = new RegExp(`${mentionRegex.source}|${urlRegex.source}`, 'g');
+  const parts = input.split(mentionAndUrlRegex);
 
   return parts.map((part, index) => {
-    if (urlRegex.test(part)) {
+    if (mentionRegex.test(part)) {
+      return (
+        <span key={index} className="bg-blue-500 text-white rounded px-0.5 font-bold">
+          {part}
+        </span>
+      );
+    } else if (urlRegex.test(part)) {
       return (
         <a
           key={index}
@@ -25,12 +34,11 @@ const highlightLinks = (input: string) => {
           {shortenLinks(part)}
         </a>
       );
-    }
-    else {
+    } else {
       return part;
     }
   });
-};
+}
 
 interface ParsedMessage {
   tags: { [key: string]: string };
@@ -43,14 +51,18 @@ interface ParsedMessage {
   messageId: string;
 }
 
-const dev = import.meta.env.MODE === 'development';
+const dev = false && import.meta.env.MODE === 'development';
 const channelName = 'Rua_Sato';
 
 function App() {
-  const [messages, setMessages] = useState<ParsedMessage[]>(() => dev
-    ? [{ ...messageMock, messageId: Math.random() } as unknown as ParsedMessage]
-    : []
-  );
+  const [messages, setMessages] = useState<ParsedMessage[]>([]);
+
+  useEffect(() => {
+    if (!dev) {
+      return;
+    }
+    displayMessage({ ...messageMock, messageId: Math.random() } as unknown as ParsedMessage);
+  }, []);
 
   useEffect(() => {
     const username = `justinfan${Math.floor(Math.random() * 100000)}`;  // Гостевой аккаунт с случайным числом
@@ -137,14 +149,6 @@ function App() {
       return null;
     }
 
-    // Функция для отображения сообщения
-    function displayMessage(message: ParsedMessage): void {
-      const { username, content, isSub } = message;
-      console.log(`[${username}]: ${content} ${isSub ? '[SUBSCRIBER]' : ''}`);
-      // Здесь можно добавить код для отображения сообщений в HTML-элементе, если нужно
-      setMessages(messages => [...messages, message]);
-    }
-
     // Обрабатываем ошибки
     socket.onerror = (error: Event): void => {
       console.error('WebSocket Error:', error);
@@ -156,12 +160,76 @@ function App() {
     };
   }, []);
 
+  const removeOverflowingMessages = useCallback(() => {
+    if (!chatContainerRef.current) {
+      return;
+    }
+    
+    const chatElement = chatContainerRef.current;
+    
+    messages.forEach(({ messageId }, index) => {
+      const messageElement = document.getElementById(`message-${index}`);
+      if (!messageElement) {
+        return;
+      }
+      // Получаем размеры и положение элемента относительно контейнера
+      const messageRect = messageElement.getBoundingClientRect();
+      const containerRect = chatElement.getBoundingClientRect();
+
+      if (messageRect.bottom > containerRect.bottom) {
+        console.log('Удаляем index:', index);
+        // removeMessage(messageId);
+        // return;
+        // Добавляем класс для анимации
+        messageElement.classList.add('slide-out');
+
+        // Удаляем сообщение после завершения анимации
+        messageElement.addEventListener('transitionend', () => {
+          removeMessage(messageId);
+        }, { once: true });
+      }
+    });
+  }, [messages]);
+
+  const lastMessageRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const messageElement = lastMessageRef.current;
+    if (messageElement) {
+      messageElement.style.marginTop = `-${messageElement.offsetHeight}px`;
+
+      setTimeout(() => {
+        messageElement.style.transition = 'margin-top 0.5s ease';
+        messageElement.style.marginTop = '0';
+
+        messageElement.addEventListener('transitionend', () => {
+          removeOverflowingMessages();
+        }, { once: true });
+      }, 100);
+    }
+  }, [messages, removeOverflowingMessages]);
+
+  // Функция для отображения сообщения
+  function displayMessage(message: ParsedMessage): void {
+    if (dev) {
+      // const { username, content, isSub } = message;
+      // console.log(`[${username}]: ${content} ${isSub ? '[SUBSCRIBER]' : ''}`);
+    }
+    // Здесь можно добавить код для отображения сообщений в HTML-элементе, если нужно
+    setMessages(messages => [message, ...messages]);
+  }
+
   // Функция удаления сообщений
   const removeMessage = (messageId: string) => {
     setMessages((prevMessages) => prevMessages.filter((msg) => msg.messageId !== messageId));
   };
 
+  const chatStartRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Скроллим к последнему сообщению
+  const scrollToTop = () => {
+    chatStartRef.current?.scrollIntoView();
+  };
 
   // Скроллим к последнему сообщению
   const scrollToBottom = () => {
@@ -169,94 +237,119 @@ function App() {
   };
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToTop();
   }, [messages]);
 
   const MAX_MESSAGES = 10;
   useEffect(() => {
     if (messages.length > MAX_MESSAGES) {
-      setMessages([...messages].slice(-MAX_MESSAGES));
+      setMessages([...messages].slice(0, MAX_MESSAGES));
     }
   }, [messages]);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
+  /** Проверка, есть ли у элемента прокрутка */
+  const hasScroll = (element: HTMLElement): boolean => {
+    return element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
+  };
+
   // Спам сообщениями
+  const countRef = useRef(1);
+  const SPAM_INTERVAL = 2_000;
   useEffect(() => {
     if (!dev) {
       return;
     }
 
     const interval = setInterval(() => {
-      setMessages(messages => [...messages, {
+      displayMessage({
         ...messageMock,
-        content: 'test абоба '.repeat(8) + Math.random(),
+        content: `@Rua_Sato ${countRef.current++}`.repeat(4),
         messageId: Math.random()
-      } as unknown as ParsedMessage]);
-    }, 2_000);
+      } as unknown as ParsedMessage);
+    }, SPAM_INTERVAL);
 
     return () => {
       clearInterval(interval);
     }
-  }, []);
+  }, [messages.length]);
 
   return (
     <div
       ref={chatContainerRef}
-      className={classNames(dev && 'bg-slate-600', 'flex flex-col')}
+      id='chat'
+      className={classNames(dev && 'bg-slate-600', 'flex flex-col h-screen')}
     >
-      {messages.map(({ messageId, tags, username, content, isMod, isSub }, index) =>
-        <div
-          key={messageId}
-          id={`message-${index}`}
-          data-message-id={messageId}
-          className="text-white w-full flex gap-3 p-2 rounded-xl"
-        >
-          {/* Profile Icon */}
-          <div className="flex flex-col gap-1 items-center">
-            <div className="flex justify-center items-center size-6 bg-[#ABBFF1] rounded-full">
-              {username === channelName.toLowerCase()
-                ? <StreamerIcon />
-                : isMod
-                  ? <ModeratorIcon />
-                  : isSub
-                    ? <SubscriberIcon />
-                    : <ViewerIcon />
-              }
+      <div ref={chatStartRef} />
+      {messages.map(({ messageId, tags, username, content, isMod, isSub }, index) => {
+        const isStreamer = username === channelName.toLowerCase();
+        const displayName = tags?.['display-name'] || username;
+        const isHighlited = tags?.['msg-id'] === 'highlighted-message';
+        return (
+          <div
+            key={messageId}
+            ref={index === 0 ? lastMessageRef : undefined}
+            id={`message-${index}`}
+            className={classNames(
+              'message',
+              index === 0 && 'new-message',
+              'text-white w-full flex gap-3 p-2 rounded-xl'
+            )}
+            data-message-id={messageId}
+          >
+            {/* Profile Icon */}
+            <div className="flex flex-col gap-1 items-center">
+              <div className="flex justify-center items-center size-6 bg-[#ABBFF1] rounded-full">
+                {username === channelName.toLowerCase()
+                  ? <StreamerIcon />
+                  : isMod
+                    ? <ModeratorIcon />
+                    : isSub
+                      ? <SubscriberIcon />
+                      : <ViewerIcon />
+                }
+              </div>
+              {/* <div
+                className="grow h-8 border-l-[2px] border-dashed border-[#ABBFF1]"
+                style={{
+                  borderImage:
+                  'repeating-linear-gradient(#ABBFF1, #ABBFF1 18px, transparent 18px, transparent 24px, #ABBFF1 24px, #ABBFF1 24px) 1 100%' }}></div> */}
             </div>
-            {/* <div
-              className="grow h-8 border-l-[2px] border-dashed border-[#ABBFF1]"
-              style={{
-                borderImage:
-                'repeating-linear-gradient(#ABBFF1, #ABBFF1 18px, transparent 18px, transparent 24px, #ABBFF1 24px, #ABBFF1 24px) 1 100%' }}></div> */}
-          </div>
 
-          {/* Message Content */}
-          <div className="flex flex-col gap-1 grow">
-            <div className="flex items-center gap-2 text-sm">
-              <span
-                className={classNames(
-                  'ml-1 font-bold text-xl leading-tight',
-                  username === channelName.toLowerCase() && 'text-blue-200'
-                )}
-                style={{ textShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}
+            {/* Message Content */}
+            <div className="flex flex-col gap-1 grow">
+              <div className="flex items-center gap-2 text-sm">
+                <span
+                  className={classNames(
+                    'ml-1 font-bold text-xl leading-tight',
+                    isStreamer && 'text-blue-200'
+                  )}
+                  style={{ textShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}
+                >
+                  {displayName}
+                  {isStreamer && ' (чикибульони)'}
+                </span>
+              </div>
+              <div
+                className="relative max-w-96 bg-[#243171] py-2 px-4 rounded-lg border border-[#ABBFF1]"
+                style={{ boxShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}
               >
-                {tags?.['display-name'] || username}
-                {username === channelName.toLowerCase() && ' (чикибульони)'}
-              </span>
-            </div>
-            <div
-              className="relative max-w-96 bg-[#243171] py-2 px-4 rounded-lg border border-[#ABBFF1]"
-              style={{ boxShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}
-            >
-              <p className="block overflow-hidden text-ellipsis text-xl">
-                {highlightLinks(content)}
-              </p>
-              <div className='absolute right-2 top-0 bottom-0 flex w-[1px] bg-[#ABBFF1]'></div>
+                <p
+                  className={classNames(
+                    'block overflow-hidden text-ellipsis text-xl',
+                    isHighlited && 'bg-blue-500 text-white'
+                  )}
+                  // dangerouslySetInnerHTML={{ __html: processText(content) }}
+                >
+                  {processText(content)}
+                </p>
+                <div className='absolute right-2 top-0 bottom-0 flex w-[1px] bg-[#ABBFF1]'></div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })}
       <div ref={chatEndRef} />
     </div>
   )

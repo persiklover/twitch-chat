@@ -13,3 +13,19 @@ body {
   font-weight: 400;
   font-style: normal;
 }
+
+#chat {
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  &.slide-out {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+#chat .message:not(.new-message) {
+  // background: red;
+}
