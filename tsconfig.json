@@ -8,6 +8,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
     "outDir": "./dist",  // Папка для вывода сгенерированных файлов
     "rootDir": "./src"   // Указывает корневую папку исходного кода
   },

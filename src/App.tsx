@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import classNames from 'classnames';
 import shortenLinks from './utils/shorten-links';
 import parseTags from './utils/parse-tags';
+import replaceEmotes from './utils/replace-emotes';
 import messageMock from './message-mock';
 import StreamerIcon from './icons/StreamerIcon';
 import ModeratorIcon from './icons/ModeratorIcon';
@@ -13,7 +14,7 @@ const urlRegex = /(https?:\/\/[^\s]+)/g;
 
 function processText(input: string) {
   const mentionAndUrlRegex = new RegExp(`${mentionRegex.source}|${urlRegex.source}`, 'g');
-  const parts = input.split(mentionAndUrlRegex);
+  const parts = input.split(mentionAndUrlRegex).filter(Boolean);
 
   return parts.map((part, index) => {
     if (mentionRegex.test(part)) {
@@ -35,7 +36,9 @@ function processText(input: string) {
         </a>
       );
     } else {
-      return part;
+      return (
+        <span key={index} dangerouslySetInnerHTML={{ __html: replaceEmotes(part) }} />
+      );
     }
   });
 }
@@ -265,7 +268,7 @@ function App() {
     const interval = setInterval(() => {
       displayMessage({
         ...messageMock,
-        content: `@Rua_Sato ${countRef.current++}`.repeat(4),
+        content: '@Rua_Sato моя мама любит пиво '.repeat(4),
         messageId: Math.random()
       } as unknown as ParsedMessage);
     }, SPAM_INTERVAL);
@@ -310,42 +313,31 @@ function App() {
                       : <ViewerIcon />
                 }
               </div>
-              {/* <div
-                className="grow h-8 border-l-[2px] border-dashed border-[#ABBFF1]"
-                style={{
-                  borderImage:
-                  'repeating-linear-gradient(#ABBFF1, #ABBFF1 18px, transparent 18px, transparent 24px, #ABBFF1 24px, #ABBFF1 24px) 1 100%' }}></div> */}
             </div>
 
             {/* Message Content */}
-            <div className="flex flex-col gap-1 grow">
-              <div className="flex items-center gap-2 text-sm">
-                <span
-                  className={classNames(
-                    'ml-1 font-bold text-xl leading-tight',
-                    isStreamer && 'text-blue-200'
-                  )}
-                  style={{ textShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}
-                >
-                  {displayName}
-                  {isStreamer && ' (чикибульони)'}
-                </span>
-              </div>
-              <div
-                className="relative max-w-96 bg-[#243171] py-2 px-4 rounded-lg border border-[#ABBFF1]"
-                style={{ boxShadow: '0 0 10px rgba(255, 255, 255, 0.5)' }}
+            <div className="">
+              {/* Author */}
+              <span
+                className={classNames(
+                  'ml-1 font-bold text-xl leading-tight',
+                  isStreamer && 'text-blue-200'
+                )}
               >
-                <p
-                  className={classNames(
-                    'block overflow-hidden text-ellipsis text-xl',
-                    isHighlited && 'bg-blue-500 text-white'
-                  )}
-                  // dangerouslySetInnerHTML={{ __html: processText(content) }}
-                >
-                  {processText(content)}
-                </p>
-                <div className='absolute right-2 top-0 bottom-0 flex w-[1px] bg-[#ABBFF1]'></div>
-              </div>
+                {displayName}
+                {isStreamer && ' (чикибульони)'}
+                :{' '}
+              </span>
+              {/* Text */}
+              <span
+                className={classNames(
+                  'message-text',
+                  'overflow-hidden text-ellipsis text-xl',
+                  isHighlited && 'bg-blue-500 text-white'
+                )}
+              >
+                {processText(content)}
+              </span>
             </div>
           </div>
         )

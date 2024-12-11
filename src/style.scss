@@ -10,7 +10,7 @@ html {
 
 body {
   font-family: "Poiret One", sans-serif;
-  font-weight: 400;
+  font-weight: normal;
   font-style: normal;
 }
 
@@ -23,6 +23,14 @@ body {
   &.slide-out {
     transform: translateX(-100%);
     opacity: 0;
+  }
+
+  &-text {
+    img {
+      vertical-align: middle;
+      display: inline-block;
+      height: 1em;
+    }
   }
 }
 
