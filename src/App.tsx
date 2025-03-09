@@ -54,10 +54,19 @@ interface ParsedMessage {
   messageId: string;
 }
 
-const dev = false && import.meta.env.MODE === 'development';
-const channelName = 'Rua_Sato';
+const dev = true || import.meta.env.MODE === 'development';
+const searchParams = new URLSearchParams(location.search);
+const channelName = searchParams.get('channel') || 'Rua_Sato';
 
 function App() {
+  // useEffect(() => {
+  //   async function fn() {
+  //     const respone = await fetch('https://api.betterttv.net/3/cached/users/twitch/Rua_Sato')
+  //     const data = await respone.json();
+  //     console.log(data);
+  //   }
+  //   fn()
+  // }, []);
   const [messages, setMessages] = useState<ParsedMessage[]>([]);
 
   useEffect(() => {
@@ -282,7 +291,10 @@ function App() {
     <div
       ref={chatContainerRef}
       id='chat'
-      className={classNames(dev && 'bg-slate-600', 'flex flex-col h-screen')}
+      className={classNames(
+        // dev && 'bg-slate-600',
+        'flex flex-col h-screen'
+      )}
     >
       <div ref={chatStartRef} />
       {messages.map(({ messageId, tags, username, content, isMod, isSub }, index) => {
@@ -316,7 +328,7 @@ function App() {
             </div>
 
             {/* Message Content */}
-            <div className="">
+            <div className="bg-[#759AE0] border-4 rounded-lg py-1 px-2">
               {/* Author */}
               <span
                 className={classNames(
